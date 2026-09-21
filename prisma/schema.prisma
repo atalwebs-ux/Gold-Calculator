@@ -1,0 +1,194 @@
+// Global Gold Live - Prisma Schema
+// Provider: MySQL 8+
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User Identity & Profile (Synced with Firebase Auth)
+model User {
+  id              String           @id @default(uuid())
+  firebaseUid     String           @unique
+  email           String           @unique
+  fullName        String?
+  profileImageUrl String?          @db.Text
+  authProvider    String           @default("password")
+  emailVerified   Boolean          @default(false)
+  role            String           @default("USER") // USER, ADMIN
+  status          String           @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
+  lastLoginAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  preference      UserPreference?
+  favoriteCountries FavoriteCountry[]
+  priceAlerts     PriceAlert[]
+  subscriptions   Subscription[]
+  devices         Device[]
+  auditLogs       AuditLog[]
+
+  @@index([firebaseUid])
+  @@index([email])
+}
+
+model UserPreference {
+  id                   String   @id @default(uuid())
+  userId               String   @unique
+  defaultCountryCode   String   @default("US")
+  defaultCurrencyCode  String   @default("USD")
+  defaultPurity        String   @default("24K")
+  defaultWeightUnit    String   @default("gram")
+  theme                String   @default("system") // light, dark, system
+  language             String   @default("en")
+  notificationsEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Country {
+  id             String   @id @default(uuid())
+  isoCode        String   @unique // e.g. "IN", "US", "AE"
+  name           String
+  currencyCode   String
+  currencySymbol String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isoCode])
+}
+
+model Currency {
+  id            String   @id @default(uuid())
+  isoCode       String   @unique // e.g. "USD", "INR", "AED"
+  name          String
+  symbol        String
+  decimalPlaces Int      @default(2)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([isoCode])
+}
+
+model GoldRate {
+  id           String    @id @default(uuid())
+  countryCode  String
+  currencyCode String
+  purity       String    // 24K, 22K, 18K, 14K
+  unit         String    // gram, 10g, 100g, kg, troy_oz, tola
+  price        Decimal   @db.Decimal(18, 4)
+  source       String
+  fetchedAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([countryCode, currencyCode, purity, unit])
+  @@index([fetchedAt])
+}
+
+model HistoricalGoldRate {
+  id           String   @id @default(uuid())
+  countryCode  String
+  currencyCode String
+  purity       String
+  unit         String
+  price        Decimal  @db.Decimal(18, 4)
+  recordedAt   DateTime
+  source       String
+  createdAt    DateTime @default(now())
+
+  @@index([countryCode, currencyCode, recordedAt])
+}
+
+model FavoriteCountry {
+  id           String   @id @default(uuid())
+  userId       String
+  countryCode  String
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, countryCode])
+  @@index([userId])
+}
+
+model PriceAlert {
+  id              String    @id @default(uuid())
+  userId          String
+  countryCode     String
+  currencyCode    String
+  purity          String
+  unit            String
+  targetPrice     Decimal   @db.Decimal(18, 4)
+  condition       String    // "ABOVE" or "BELOW"
+  status          String    @default("ACTIVE") // ACTIVE, TRIGGERED, PAUSED, DELETED
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, countryCode, currencyCode])
+}
+
+model Subscription {
+  id            String    @id @default(uuid())
+  userId        String
+  provider      String    // revenuecat, apple, google
+  productId     String
+  transactionId String?
+  entitlement   String    @default("premium")
+  status        String    // ACTIVE, EXPIRED, CANCELED
+  startedAt     DateTime  @default(now())
+  expiresAt     DateTime?
+  autoRenewing  Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Device {
+  id           String    @id @default(uuid())
+  userId       String
+  deviceId     String
+  platform     String    // ios, android, web
+  pushToken    String?   @db.Text
+  appVersion   String?
+  lastActiveAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   String?  @db.Text
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+}
