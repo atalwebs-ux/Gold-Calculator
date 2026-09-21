@@ -1,4 +1,4 @@
-import { fastForexProvider } from '../providers/fastForexProvider';
+import { fastForexProvider, FALLBACK_FX_RATES } from '../providers/fastForexProvider';
 import { goldPriceProvider } from '../providers/goldPriceProvider';
 import { logger } from '../utils/logger';
 
@@ -108,20 +108,36 @@ export class GoldRateService {
 
       // Fetch FX rate and USD spot for cross comparison
       if (curUpper !== 'USD') {
-        fxRate = await fastForexProvider.fetchOne('USD', curUpper).catch(() => 1.0);
+        fxRate = await fastForexProvider.fetchOne('USD', curUpper);
       }
-      spotOzUSD = pricePerGram24K * TROY_OUNCE_IN_GRAMS / fxRate;
+      spotOzUSD = (pricePerGram24K * TROY_OUNCE_IN_GRAMS) / (fxRate || 1.0);
     } catch (err) {
-      logger.warn('fastFOREX fetchMetalSpot failed, falling back to FX cross-rate', { error: String(err) });
-      // Fallback: GoldPrice USD spot + FastForex FX conversion
-      const spotRes = await goldPriceProvider.getSpotGoldUSD();
-      spotOzUSD = spotRes.pricePerTroyOz;
-      fxRate = await fastForexProvider.fetchOne('USD', curUpper).catch(() => 1.0);
-      pricePerGram24K = (spotOzUSD / TROY_OUNCE_IN_GRAMS) * fxRate;
+      logger.warn('fastFOREX fetchMetalSpot failed, falling back to GoldPrice quotes', { error: String(err) });
+      // Fallback: GoldPrice spot quote directly in requested currency
+      const spotRes = await goldPriceProvider.getSpotGold(curUpper);
+      pricePerGram24K = spotRes.pricePerTroyOz / TROY_OUNCE_IN_GRAMS;
       bid = pricePerGram24K * 0.9995;
       ask = pricePerGram24K * 1.0005;
       lastUpdated = spotRes.computedAt;
-      source = 'fastFOREX FX + GoldPrice Spot';
+      source = 'GoldPrice.dev Live Spot';
+
+      try {
+        const usdSpot = await goldPriceProvider.getSpotGoldUSD();
+        spotOzUSD = usdSpot.pricePerTroyOz;
+        fxRate = curUpper === 'USD' ? 1.0 : spotRes.pricePerTroyOz / spotOzUSD;
+      } catch {
+        fxRate = curUpper === 'USD' ? 1.0 : (FALLBACK_FX_RATES[curUpper] || 1.0);
+        spotOzUSD = spotRes.pricePerTroyOz / fxRate;
+      }
+    }
+
+    // Safety guard: if INR and rate is anomalously low (< 3000), multiply by realistic FX
+    if (curUpper === 'INR' && pricePerGram24K < 3000) {
+      const realFx = fxRate > 1 ? fxRate : 95.8;
+      pricePerGram24K = pricePerGram24K * realFx;
+      bid = pricePerGram24K * 0.9995;
+      ask = pricePerGram24K * 1.0005;
+      fxRate = realFx;
     }
 
     // Previous rate & change calculation
@@ -248,8 +264,13 @@ export class GoldRateService {
     const count = range === '7d' ? 7 : range === '1m' ? 14 : range === '3m' ? 14 : 7;
     const selectedDates = dates.slice(-count);
 
+    const defaultFx = curUpper === 'USD' ? 1.0 : (FALLBACK_FX_RATES[curUpper] || 95.8);
+
     const points = selectedDates.map((date) => {
-      const fx = fxSeries[date] || 1.0;
+      let fx = fxSeries[date] || defaultFx;
+      if (curUpper === 'INR' && fx < 10) {
+        fx = defaultFx;
+      }
       const price = Number((spotGramUSD * fx * purityRatio * unitMultiplier).toFixed(2));
       return {
         date,

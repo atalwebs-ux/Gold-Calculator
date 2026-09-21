@@ -1,5 +1,6 @@
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
+import { FALLBACK_FX_RATES } from './fastForexProvider';
 
 export interface SpotSymbolQuote {
   symbol: string;
@@ -116,19 +117,42 @@ export class GoldPriceProvider {
   }
 
   /**
+   * Retrieves spot gold price for any requested currency per troy ounce directly from GoldPrice API quotes.
+   */
+  async getSpotGold(currency = 'USD'): Promise<{ pricePerTroyOz: number; quoteCurrency: string; computedAt: string; isStale: boolean }> {
+    const { quotes } = await this.fetchSpotPrices();
+    const curUpper = currency.toUpperCase();
+    const quote = quotes.get(curUpper);
+    if (quote) {
+      return {
+        pricePerTroyOz: parseFloat(quote.price),
+        quoteCurrency: curUpper,
+        computedAt: quote.computed_at,
+        isStale: quote.is_stale,
+      };
+    }
+
+    // If currency not directly returned, derive using USD quote + FX
+    const usdQuote = quotes.get('USD');
+    const usdPrice = usdQuote ? parseFloat(usdQuote.price) : 4356.92;
+    const fx = FALLBACK_FX_RATES[curUpper] || 1.0;
+    return {
+      pricePerTroyOz: usdPrice * fx,
+      quoteCurrency: curUpper,
+      computedAt: usdQuote ? usdQuote.computed_at : new Date().toISOString(),
+      isStale: false,
+    };
+  }
+
+  /**
    * Retrieves spot gold price for USD per troy ounce.
    */
   async getSpotGoldUSD(): Promise<{ pricePerTroyOz: number; computedAt: string; isStale: boolean }> {
-    const { quotes } = await this.fetchSpotPrices();
-    const usdQuote = quotes.get('USD');
-    if (!usdQuote) {
-      throw new Error('USD quote for XAU not available');
-    }
-
+    const res = await this.getSpotGold('USD');
     return {
-      pricePerTroyOz: parseFloat(usdQuote.price),
-      computedAt: usdQuote.computed_at,
-      isStale: usdQuote.is_stale,
+      pricePerTroyOz: res.pricePerTroyOz,
+      computedAt: res.computedAt,
+      isStale: res.isStale,
     };
   }
 

@@ -16,7 +16,7 @@ export const config = {
     refreshInterval: parseInt(process.env.GOLD_API_REFRESH_INTERVAL || '60000', 10),
   },
   fastForex: {
-    apiKey: process.env.FASTFOREX_API_KEY || '',
+    apiKey: process.env.FASTFOREX_API_KEY || 'ed1ebbd296-f60d61f339-tllrbu',
     baseUrl: process.env.FASTFOREX_BASE_URL || 'https://api.fastforex.io',
     cacheTtlMs: parseInt(process.env.FASTFOREX_CACHE_TTL_MS || '60000', 10),
   },
