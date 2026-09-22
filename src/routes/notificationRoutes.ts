@@ -24,10 +24,27 @@ const sentNotificationsLog: NotificationRecord[] = [
 ];
 
 /**
- * POST /api/v1/notifications/broadcast
- * Trigger a push notification alert for mobile app users
+ * Administrative authorization guard for push notification broadcasts.
  */
-router.post('/notifications/broadcast', (req: Request, res: Response) => {
+function verifyAdminKey(req: Request, res: Response, next: () => void) {
+  const adminKey = req.headers['x-admin-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  const expectedKey = process.env.ADMIN_API_KEY || 'gold_admin_secret_key_2026';
+
+  if (!adminKey || adminKey !== expectedKey) {
+    return res.status(401).json({
+      success: false,
+      code: 'UNAUTHORIZED',
+      error: 'Administrative authorization required. Please provide a valid X-Admin-Key header.',
+    });
+  }
+  next();
+}
+
+/**
+ * POST /api/v1/notifications/broadcast
+ * Trigger a push notification alert for mobile app users (Protected by X-Admin-Key)
+ */
+router.post('/notifications/broadcast', verifyAdminKey, (req: Request, res: Response) => {
   const { title, body, message, target = 'all_users', data = {} } = req.body;
   const content = body || message;
 
