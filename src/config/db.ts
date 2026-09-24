@@ -1,6 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 
+// Fallback database URL for cloud hosting where .env is omitted by git
+const DEFAULT_DATABASE_URL =
+  'mysql://u785941294_gold_db:Goldcalculater%40123@srv671.hstgr.io:3306/u785941294_gold';
+
+const activeDbUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = activeDbUrl;
+}
+
 // PrismaClient singleton pattern
 declare global {
   // eslint-disable-next-line no-var
@@ -10,6 +19,11 @@ declare global {
 export const prisma =
   global.prismaGlobal ||
   new PrismaClient({
+    datasources: {
+      db: {
+        url: activeDbUrl,
+      },
+    },
     log:
       process.env.NODE_ENV === 'development'
         ? [
