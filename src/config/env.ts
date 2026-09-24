@@ -29,8 +29,8 @@ export const config = {
     host: process.env.SMTP_HOST || 'smtp.hostinger.com',
     port: parseInt(process.env.SMTP_PORT || '465', 10),
     secure: process.env.SMTP_SECURE !== 'false', // true for 465, false for 587
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    user: (process.env.SMTP_USER || '').trim(),
+    pass: (process.env.SMTP_PASS || '').replace(/\s+/g, ''),
     from: process.env.SMTP_FROM || '"Gold Live" <noreply@goldlive.app>',
   },
 };
