@@ -50,61 +50,7 @@ export function createApp(): Application {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Privacy Policy - Gold Live</title>
-  <style>
-    :root {
-      --bg: #090D16;
-      --card-bg: #131A2A;
-      --text: #F1F5F9;
-      --text-muted: #94A3B8;
-      --accent: #E5B842;
-      --border: #1E293B;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      margin: 0;
-      padding: 24px;
-      display: flex;
-      justify-content: center;
-    }
-    .container {
-      max-width: 820px;
-      width: 100%;
-      background: var(--card-bg);
-      padding: 40px;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-    h1 { color: var(--accent); font-size: 28px; margin-top: 0; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
-    h2 { color: var(--accent); font-size: 20px; margin-top: 32px; }
-    h3 { font-size: 16px; color: #CBD5E1; margin-top: 20px; }
-    p, li { color: var(--text-muted); font-size: 15px; }
-    ul { padding-left: 20px; }
-    li { margin-bottom: 8px; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .badge {
-      display: inline-block;
-      padding: 4px 10px;
-      background: rgba(229, 184, 66, 0.15);
-      color: var(--accent);
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 20px;
-    }
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid var(--border);
-      font-size: 13px;
-      color: var(--text-muted);
-      text-align: center;
-    }
-  </style>
+
 </head>
 <body>
   <div class="container">
