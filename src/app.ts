@@ -1,6 +1,7 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import path from 'path';
 import { config } from './config/env';
 import { requestLogger } from './middleware/requestLogger';
 import { errorHandler } from './middleware/errorHandler';
@@ -29,12 +30,20 @@ export function createApp(): Application {
   // Logging Middleware
   app.use(requestLogger);
 
+  // Serve React Admin Panel at /admin
+  const adminDistPath = path.resolve(process.cwd(), 'public/admin');
+  app.use('/admin', express.static(adminDistPath));
+  app.get(['/admin', '/admin/*'], (_req: Request, res: Response) => {
+    res.sendFile(path.join(adminDistPath, 'index.html'));
+  });
+
   // Root Info Route
   app.get('/', (_req: Request, res: Response) => {
     res.json({
       name: 'Global Gold Live API',
       version: '1.0.0',
       status: 'active',
+      adminPortal: '/admin',
       documentation: '/api/v1/health',
       privacyPolicy: '/privacy-policy',
       accountDeletion: '/delete-account',

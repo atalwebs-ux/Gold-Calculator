@@ -192,3 +192,119 @@ model AuditLog {
   @@index([userId])
   @@index([action])
 }
+
+// =============================================================================
+// Admin Portal & Authentication
+// =============================================================================
+model AdminUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String    @default("Admin")
+  role         String    @default("SUPERADMIN")
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([email])
+}
+
+// =============================================================================
+// Community Posts, Polls & Twitter-like Feed
+// =============================================================================
+model CommunityPost {
+  id           String           @id @default(uuid())
+  userId       String?          // User ID or Firebase UID (null for admin or guest)
+  userEmail    String?
+  authorName   String
+  authorRole   String           @default("Bullion Member")
+  authorAvatar String?          @db.Text
+  content      String           @db.Text
+  type         String           @default("POST") // "POST" or "POLL"
+  tag          String           @default("General") // "General", "Poll", "Investment", "Jewelry", "Market"
+  isAdminPost  Boolean          @default(false)
+  likesCount   Int              @default(0)
+  repliesCount Int              @default(0)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  poll         Poll?
+  replies      CommunityReply[]
+  likes        CommunityLike[]
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model Poll {
+  id         String          @id @default(uuid())
+  postId     String          @unique
+  question   String
+  totalVotes Int             @default(0)
+  expiresAt  DateTime?
+  createdAt  DateTime        @default(now())
+
+  post       CommunityPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  options    PollOption[]
+  votes      PollVote[]
+
+  @@index([postId])
+}
+
+model PollOption {
+  id         String     @id @default(uuid())
+  pollId     String
+  text       String
+  votesCount Int        @default(0)
+  orderIndex Int        @default(0)
+
+  poll       Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes      PollVote[]
+
+  @@index([pollId])
+}
+
+model PollVote {
+  id        String     @id @default(uuid())
+  pollId    String
+  optionId  String
+  userId    String     // user email, firebaseUid or device identifier
+  createdAt DateTime   @default(now())
+
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option    PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@index([pollId])
+  @@index([userId])
+}
+
+model CommunityLike {
+  id        String        @id @default(uuid())
+  postId    String
+  userId    String        // user email, firebaseUid or device identifier
+  createdAt DateTime      @default(now())
+
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model CommunityReply {
+  id           String        @id @default(uuid())
+  postId       String
+  userId       String?
+  authorName   String
+  authorRole   String        @default("Member")
+  authorAvatar String?       @db.Text
+  content      String        @db.Text
+  likesCount   Int           @default(0)
+  createdAt    DateTime      @default(now())
+
+  post         CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
