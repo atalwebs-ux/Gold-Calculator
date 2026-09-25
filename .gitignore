@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Production Build Output
-dist/
+# Production Build Output (Tracked for Hostinger git deployment)
+# dist/
 
 # Environment Variables & Secrets (CRITICAL: Do NOT commit secrets to GitHub)
 .env
