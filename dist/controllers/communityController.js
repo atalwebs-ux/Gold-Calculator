@@ -17,6 +17,8 @@ const response_1 = require("../utils/response");
 async function getPosts(req, res) {
     const userId = typeof req.query.userId === 'string' ? req.query.userId.trim() : undefined;
     const tag = typeof req.query.tag === 'string' ? req.query.tag.trim() : undefined;
+    const limitParam = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+    const limit = limitParam && !isNaN(limitParam) && limitParam > 0 ? limitParam : undefined;
     try {
         const posts = await db_1.prisma.communityPost.findMany({
             where: {
@@ -26,6 +28,7 @@ async function getPosts(req, res) {
                 { isAdminPost: 'desc' },
                 { createdAt: 'desc' },
             ],
+            ...(limit ? { take: limit } : {}),
             include: {
                 poll: {
                     include: {
@@ -117,12 +120,18 @@ async function getPosts(req, res) {
  */
 async function createPost(req, res) {
     const { authorName, authorRole, authorAvatar, content, type = 'POST', tag = 'General', userId, userEmail, pollQuestion, pollOptions, isAdminPost = false, } = req.body;
+    const isAdminRequest = Boolean(isAdminPost || req.headers['x-admin-token']);
+    const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+    if (!isAdminRequest && (!cleanUserId || cleanUserId === 'device-guest-user')) {
+        (0, response_1.sendError)(res, 'Authentication required to create community posts or polls. Please log in.', 401, 'UNAUTHORIZED');
+        return;
+    }
     if (!content || typeof content !== 'string' || !content.trim()) {
         (0, response_1.sendError)(res, 'Post content is required', 400, 'CONTENT_REQUIRED');
         return;
     }
     const cleanName = (authorName && typeof authorName === 'string' && authorName.trim()) || 'Bullion Trader';
-    const cleanRole = (authorRole && typeof authorRole === 'string' && authorRole.trim()) || (isAdminPost ? 'Admin Official' : 'Community Member');
+    const cleanRole = (authorRole && typeof authorRole === 'string' && authorRole.trim()) || (isAdminRequest ? 'Admin Official' : 'Community Member');
     try {
         if (type === 'POLL') {
             const question = (pollQuestion && typeof pollQuestion === 'string' && pollQuestion.trim()) || content.trim();
@@ -271,8 +280,9 @@ async function deletePost(req, res) {
 async function toggleLike(req, res) {
     const { id: postId } = req.params;
     const { userId } = req.body;
-    if (!userId || typeof userId !== 'string') {
-        (0, response_1.sendError)(res, 'userId is required to like/unlike', 400, 'USER_ID_REQUIRED');
+    const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+    if (!cleanUserId || cleanUserId === 'device-guest-user') {
+        (0, response_1.sendError)(res, 'Authentication required to like posts. Please log in.', 401, 'UNAUTHORIZED');
         return;
     }
     try {
@@ -351,6 +361,11 @@ async function getReplies(req, res) {
 async function createReply(req, res) {
     const { id: postId } = req.params;
     const { authorName, content, userId, authorRole, authorAvatar } = req.body;
+    const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+    if (!cleanUserId || cleanUserId === 'device-guest-user') {
+        (0, response_1.sendError)(res, 'Authentication required to post replies. Please log in.', 401, 'UNAUTHORIZED');
+        return;
+    }
     if (!content || typeof content !== 'string' || !content.trim()) {
         (0, response_1.sendError)(res, 'Reply text is required', 400, 'CONTENT_REQUIRED');
         return;
@@ -393,8 +408,13 @@ async function createReply(req, res) {
 async function votePoll(req, res) {
     const { id: pollId } = req.params;
     const { optionId, userId } = req.body;
-    if (!optionId || !userId) {
-        (0, response_1.sendError)(res, 'optionId and userId are required to vote', 400, 'PARAMS_REQUIRED');
+    const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+    if (!cleanUserId || cleanUserId === 'device-guest-user') {
+        (0, response_1.sendError)(res, 'Authentication required to vote on polls. Please log in.', 401, 'UNAUTHORIZED');
+        return;
+    }
+    if (!optionId) {
+        (0, response_1.sendError)(res, 'optionId is required to vote', 400, 'PARAMS_REQUIRED');
         return;
     }
     try {

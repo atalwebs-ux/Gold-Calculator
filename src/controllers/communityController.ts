@@ -9,6 +9,8 @@ import { sendSuccess, sendError } from '../utils/response';
 export async function getPosts(req: Request, res: Response): Promise<void> {
   const userId = typeof req.query.userId === 'string' ? req.query.userId.trim() : undefined;
   const tag = typeof req.query.tag === 'string' ? req.query.tag.trim() : undefined;
+  const limitParam = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+  const limit = limitParam && !isNaN(limitParam) && limitParam > 0 ? limitParam : undefined;
 
   try {
     const posts = await prisma.communityPost.findMany({
@@ -19,6 +21,7 @@ export async function getPosts(req: Request, res: Response): Promise<void> {
         { isAdminPost: 'desc' },
         { createdAt: 'desc' },
       ],
+      ...(limit ? { take: limit } : {}),
       include: {
         poll: {
           include: {
@@ -128,13 +131,21 @@ export async function createPost(req: Request, res: Response): Promise<void> {
     isAdminPost = false,
   } = req.body;
 
+  const isAdminRequest = Boolean(isAdminPost || req.headers['x-admin-token']);
+  const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+
+  if (!isAdminRequest && (!cleanUserId || cleanUserId === 'device-guest-user')) {
+    sendError(res, 'Authentication required to create community posts or polls. Please log in.', 401, 'UNAUTHORIZED');
+    return;
+  }
+
   if (!content || typeof content !== 'string' || !content.trim()) {
     sendError(res, 'Post content is required', 400, 'CONTENT_REQUIRED');
     return;
   }
 
   const cleanName = (authorName && typeof authorName === 'string' && authorName.trim()) || 'Bullion Trader';
-  const cleanRole = (authorRole && typeof authorRole === 'string' && authorRole.trim()) || (isAdminPost ? 'Admin Official' : 'Community Member');
+  const cleanRole = (authorRole && typeof authorRole === 'string' && authorRole.trim()) || (isAdminRequest ? 'Admin Official' : 'Community Member');
 
   try {
     if (type === 'POLL') {
@@ -299,8 +310,9 @@ export async function toggleLike(req: Request, res: Response): Promise<void> {
   const { id: postId } = req.params;
   const { userId } = req.body;
 
-  if (!userId || typeof userId !== 'string') {
-    sendError(res, 'userId is required to like/unlike', 400, 'USER_ID_REQUIRED');
+  const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+  if (!cleanUserId || cleanUserId === 'device-guest-user') {
+    sendError(res, 'Authentication required to like posts. Please log in.', 401, 'UNAUTHORIZED');
     return;
   }
 
@@ -390,6 +402,12 @@ export async function createReply(req: Request, res: Response): Promise<void> {
   const { id: postId } = req.params;
   const { authorName, content, userId, authorRole, authorAvatar } = req.body;
 
+  const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+  if (!cleanUserId || cleanUserId === 'device-guest-user') {
+    sendError(res, 'Authentication required to post replies. Please log in.', 401, 'UNAUTHORIZED');
+    return;
+  }
+
   if (!content || typeof content !== 'string' || !content.trim()) {
     sendError(res, 'Reply text is required', 400, 'CONTENT_REQUIRED');
     return;
@@ -437,8 +455,14 @@ export async function votePoll(req: Request, res: Response): Promise<void> {
   const { id: pollId } = req.params;
   const { optionId, userId } = req.body;
 
-  if (!optionId || !userId) {
-    sendError(res, 'optionId and userId are required to vote', 400, 'PARAMS_REQUIRED');
+  const cleanUserId = typeof userId === 'string' ? userId.trim() : '';
+  if (!cleanUserId || cleanUserId === 'device-guest-user') {
+    sendError(res, 'Authentication required to vote on polls. Please log in.', 401, 'UNAUTHORIZED');
+    return;
+  }
+
+  if (!optionId) {
+    sendError(res, 'optionId is required to vote', 400, 'PARAMS_REQUIRED');
     return;
   }
 
